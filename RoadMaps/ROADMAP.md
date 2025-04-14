@@ -57,7 +57,7 @@ This roadmap outlines the development plan for creating a chess AI bot. It follo
 3. **Game Controls**
    - [x] Implement new game, reset game functionality
    - [ ] Add load game, save game capabilities
-   - [ ] Add undo/redo move capabilities
+   - [x] Add undo/redo move capabilities
    - [x] Create settings for engine configuration (difficulty levels)
 
 ## Phase 4: Advanced Features (3-4 weeks)
@@ -152,7 +152,7 @@ This roadmap outlines the development plan for creating a chess AI bot. It follo
 Based on the current implementation, the following tasks should be prioritized:
 
 1. Implement save/load game functionality
-2. Add undo/redo move capabilities
+2. ~~Add undo/redo move capabilities~~ ✓ (Completed in both GUI and CLI interfaces)
 3. ~~Create a command-line interface for alternative access~~ ✓ (Completed with text_chess.py)
 4. Implement opening book integration for more varied gameplay
 5. Add PGN support for game analysis and sharing

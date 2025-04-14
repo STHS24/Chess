@@ -109,6 +109,8 @@ def print_help():
     print("  level [1-20]: Set difficulty level (1=easiest, 20=hardest)")
     print("  hint: Get a move suggestion")
     print("  eval: Show position evaluation")
+    print("  undo/u: Undo the last move")
+    print("  redo/r: Redo a previously undone move")
     print("  quit: Exit the program")
     print("\nPress Enter to continue...")
     input()
@@ -134,7 +136,7 @@ def get_user_move(board):
                 return 'help'
             elif move_str in ['board', 'b']:
                 return 'board'
-            elif move_str in ['resign', 'r']:
+            elif move_str in ['resign']:
                 return 'resign'
             elif move_str in ['new', 'n']:
                 return 'new'
@@ -146,6 +148,10 @@ def get_user_move(board):
                 return 'hint'
             elif move_str in ['eval', 'evaluation']:
                 return 'eval'
+            elif move_str in ['undo', 'u']:
+                return 'undo'
+            elif move_str in ['redo', 'rd']:
+                return 'redo'
 
             # Try to parse as UCI move (e.g., "e2e4")
             try:
@@ -166,6 +172,61 @@ def get_user_move(board):
             print("\nUse 'quit' to exit.")
         except Exception as e:
             print(f"{Colors.RED}Error: {e}{Colors.RESET}")
+
+def undo_move(board, player_color, redone_moves):
+    """Undo the last move."""
+    # Need to undo both player and AI moves to maintain turn order
+    moves_to_undo = 2
+
+    # If it's the player's turn, we only need to undo one move if only one move has been made
+    if board.turn == player_color and len(board.move_stack) == 1:
+        moves_to_undo = 1
+
+    # Check if we have enough moves to undo
+    if len(board.move_stack) < moves_to_undo:
+        print(f"{Colors.RED}Cannot undo any further.{Colors.RESET}")
+        return None
+
+    # Undo the moves
+    last_undone = None
+    for _ in range(moves_to_undo):
+        if board.move_stack:
+            # Add the move to redone_moves for potential redo
+            move = board.pop()
+            redone_moves.append(move)
+            last_undone = move
+            print(f"{Colors.CYAN}Undoing move: {move.uci()}{Colors.RESET}")
+
+    return last_undone
+
+def redo_move(board, player_color, redone_moves):
+    """Redo a previously undone move."""
+    if not redone_moves:
+        # No moves to redo
+        print(f"{Colors.RED}Cannot redo any further.{Colors.RESET}")
+        return None
+
+    # Need to redo both player and AI moves to maintain turn order
+    moves_to_redo = 2
+
+    # If it's the AI's turn, we only need to redo one move if only one move is available
+    if board.turn != player_color and len(redone_moves) == 1:
+        moves_to_redo = 1
+
+    # Check if we have enough moves to redo
+    if len(redone_moves) < moves_to_redo:
+        moves_to_redo = len(redone_moves)
+
+    # Redo the moves
+    last_redone = None
+    for _ in range(moves_to_redo):
+        if redone_moves:
+            move = redone_moves.pop()
+            board.push(move)
+            last_redone = move
+            print(f"{Colors.CYAN}Redoing move: {move.uci()}{Colors.RESET}")
+
+    return last_redone
 
 def print_engine_analysis(engine, board):
     """Print the engine's analysis of the position."""
@@ -272,6 +333,7 @@ def main():
     # Game state
     player_color = chess.WHITE  # Player starts as white
     last_move = None
+    redone_moves = []  # Stack to store moves that have been undone (for redo functionality)
 
     # Main game loop
     try:
@@ -329,14 +391,17 @@ def main():
                             board = chess.Board()
                             player_color = chess.WHITE
                             last_move = None
+                            redone_moves = []
                             continue
                     elif move == 'new':
                         board = chess.Board()
                         player_color = chess.WHITE
                         last_move = None
+                        redone_moves = []
                         continue
                     elif move == 'flip':
                         player_color = not player_color
+                        redone_moves = []
                         continue
                     elif move.startswith('level '):
                         try:
@@ -359,8 +424,20 @@ def main():
                     elif move == 'eval':
                         print_engine_analysis(engine, board)
                         continue
+                    elif move == 'undo':
+                        undone_move = undo_move(board, player_color, redone_moves)
+                        if undone_move:
+                            last_move = board.peek() if board.move_stack else None
+                        continue
+                    elif move == 'redo':
+                        redone_move = redo_move(board, player_color, redone_moves)
+                        if redone_move:
+                            last_move = redone_move
+                        continue
 
                 # Make the move
+                # Clear redone_moves when a new move is made
+                redone_moves = []
                 board.push(move)
                 last_move = move
 

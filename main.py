@@ -118,6 +118,9 @@ player_color = chess.WHITE  # Player plays as white by default
 game_over = False
 game_result = None
 
+# Undo/redo history
+redone_moves = []  # Stack to store moves that have been undone (for redo functionality)
+
 def get_square_from_pos(pos):
     """Convert mouse position to chess square."""
     x, y = pos
@@ -267,6 +270,59 @@ def check_game_over():
         else:
             game_result = "Game over!"
 
+def undo_move():
+    """Undo the last move."""
+    global redone_moves
+
+    # Need to undo both player and AI moves to maintain turn order
+    moves_to_undo = 2
+
+    # If it's the player's turn, we only need to undo one move if only one move has been made
+    if board.turn == player_color and len(board.move_stack) == 1:
+        moves_to_undo = 1
+
+    # Check if we have enough moves to undo
+    if len(board.move_stack) < moves_to_undo:
+        return False
+
+    # Undo the moves
+    for _ in range(moves_to_undo):
+        if board.move_stack:
+            # Add the move to redone_moves for potential redo
+            move = board.pop()
+            redone_moves.append(move)
+            print(f"Undoing move: {move.uci()}")
+
+    return True
+
+def redo_move():
+    """Redo a previously undone move."""
+    global redone_moves
+
+    if not redone_moves:
+        # No moves to redo
+        return False
+
+    # Need to redo both player and AI moves to maintain turn order
+    moves_to_redo = 2
+
+    # If it's the AI's turn, we only need to redo one move if only one move is available
+    if board.turn != player_color and len(redone_moves) == 1:
+        moves_to_redo = 1
+
+    # Check if we have enough moves to redo
+    if len(redone_moves) < moves_to_redo:
+        moves_to_redo = len(redone_moves)
+
+    # Redo the moves
+    for _ in range(moves_to_redo):
+        if redone_moves:
+            move = redone_moves.pop()
+            board.push(move)
+            print(f"Redoing move: {move.uci()}")
+
+    return True
+
 def display_game_result():
     """Display the game result on the screen."""
     if game_result:
@@ -368,7 +424,7 @@ def display_analysis_panel():
         print(f"Error displaying analysis panel: {e}")
 
 def main():
-    global selected_square, game_over, player_color, game_result
+    global selected_square, game_over, player_color, game_result, redone_moves
 
     # If player is black, make AI move first
     if player_color == chess.BLACK:
@@ -401,6 +457,9 @@ def main():
                                 move.promotion = chess.QUEEN  # Always promote to queen for simplicity
 
                             if move in board.legal_moves:
+                                # Clear redone_moves when a new move is made
+                                redone_moves = []
+
                                 board.push(move)
                                 selected_square = None
 
@@ -422,6 +481,8 @@ def main():
                     selected_square = None
                     game_over = False
                     game_result = None
+                    # Clear redo history when starting a new game
+                    redone_moves = []
                     if player_color == chess.BLACK:
                         make_ai_move()
 
@@ -432,6 +493,8 @@ def main():
                     selected_square = None
                     game_over = False
                     game_result = None
+                    # Clear redo history when switching sides
+                    redone_moves = []
                     if player_color == chess.BLACK:
                         make_ai_move()
 
@@ -449,6 +512,22 @@ def main():
                     # Resize the window
                     screen = pygame.display.set_mode((WIDTH, HEIGHT + ANALYSIS_PANEL_HEIGHT if SHOW_ANALYSIS else HEIGHT))
                     print(f"Analysis panel {'shown' if SHOW_ANALYSIS else 'hidden'}")
+
+                # Undo move with 'z' key or left arrow
+                elif event.key in [pygame.K_z, pygame.K_LEFT]:
+                    if not game_over:
+                        if undo_move():
+                            print("Move undone")
+                        else:
+                            print("Cannot undo any further")
+
+                # Redo move with 'y' key or right arrow
+                elif event.key in [pygame.K_y, pygame.K_RIGHT]:
+                    if not game_over:
+                        if redo_move():
+                            print("Move redone")
+                        else:
+                            print("Cannot redo any further")
 
         # Fill the screen with the background color
         screen.fill(BACKGROUND_COLOR)
