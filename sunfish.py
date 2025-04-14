@@ -1,16 +1,20 @@
-#!/usr/bin/env pypy3
+#!/usr/bin/env python3
+"""
+Sunfish Chess Engine - Core Module
+
+This is a modified version of the Sunfish chess engine by Thomas Ahle.
+It has been streamlined to remove the UCI interface and other components
+not needed for integration with our chess application.
+
+The engine provides core chess logic, position evaluation, and search algorithms
+that are used by the SunfishWrapper class to provide AI functionality.
+"""
+
 from __future__ import print_function
-
-import time, math
 from itertools import count
-from collections import namedtuple, defaultdict
+from collections import namedtuple
 
-# If we could rely on the env -S argument, we could just use "pypy3 -u"
-# as the shebang to unbuffer stdout. But alas we have to do this instead:
-#from functools import partial
-#print = partial(print, flush=True)
-
-version = "sunfish 2023"
+version = "sunfish 2023 (modified)"
 
 ###############################################################################
 # Piece-Square tables. Tune these to change sunfish's behaviour
@@ -123,13 +127,7 @@ QS = 40
 QS_A = 140
 EVAL_ROUGHNESS = 15
 
-# minifier-hide start
-opt_ranges = dict(
-    QS = (0, 300),
-    QS_A = (0, 300),
-    EVAL_ROUGHNESS = (0, 50),
-)
-# minifier-hide end
+
 
 
 ###############################################################################
@@ -200,7 +198,8 @@ class Position(namedtuple("Position", "board score wc bc ep kp")):
 
     def move(self, move):
         i, j, prom = move
-        p, q = self.board[i], self.board[j]
+        p = self.board[i]  # The piece we're moving
+        # q = self.board[j]  # The piece we're capturing (if any)
         put = lambda board, i, p: board[:i] + p + board[i + 1 :]
         # Copy variables and reset ep and kp
         board = self.board
@@ -445,56 +444,6 @@ def render(i):
     rank, fil = divmod(i - A1, 10)
     return chr(fil + ord("a")) + str(-rank + 1)
 
-hist = [Position(initial, 0, (True, True), (True, True), 0, 0)]
-
-#input = raw_input
-
-# minifier-hide start
-import sys, tools.uci
-tools.uci.run(sys.modules[__name__], hist[-1])
-sys.exit()
-# minifier-hide end
-
+# Initialize a default searcher and history for use by wrapper classes
 searcher = Searcher()
-while True:
-    args = input().split()
-    if args[0] == "uci":
-        print("id name", version)
-        print("uciok")
-
-    elif args[0] == "isready":
-        print("readyok")
-
-    elif args[0] == "quit":
-        break
-
-    elif args[:2] == ["position", "startpos"]:
-        del hist[1:]
-        for ply, move in enumerate(args[3:]):
-            i, j, prom = parse(move[:2]), parse(move[2:4]), move[4:].upper()
-            if ply % 2 == 1:
-                i, j = 119 - i, 119 - j
-            hist.append(hist[-1].move(Move(i, j, prom)))
-
-    elif args[0] == "go":
-        wtime, btime, winc, binc = [int(a) / 1000 for a in args[2::2]]
-        if len(hist) % 2 == 0:
-            wtime, winc = btime, binc
-        think = min(wtime / 40 + winc, wtime / 2 - 1)
-
-        start = time.time()
-        move_str = None
-        for depth, gamma, score, move in Searcher().search(hist):
-            # The only way we can be sure to have the real move in tp_move,
-            # is if we have just failed high.
-            if score >= gamma:
-                i, j = move.i, move.j
-                if len(hist) % 2 == 0:
-                    i, j = 119 - i, 119 - j
-                move_str = render(i) + render(j) + move.prom.lower()
-                print("info depth", depth, "score cp", score, "pv", move_str)
-            if move_str and time.time() - start > think * 0.8:
-                break
-
-        print("bestmove", move_str or '(none)')
-
+hist = [Position(initial, 0, (True, True), (True, True), 0, 0)]
